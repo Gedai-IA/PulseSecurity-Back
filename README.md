@@ -94,9 +94,16 @@ uv run ruff check --fix .
 uv run alembic revision --autogenerate -m "description"
 ```
 
-## API Documentation
+## Documentação
 
-Após iniciar o servidor, acesse:
+Documentação completa disponível em [`docs/`](./docs/):
+- [Arquitetura](./docs/architecture.md) - Diagrama de arquitetura e visão geral
+- [Diagramas de Sequência](./docs/sequence-diagrams.md) - Fluxos principais
+- [Guia de Desenvolvimento](./docs/development.md) - Setup e convenções
+- [Documentação da API](./docs/api.md) - Referência completa dos endpoints
+- [Quick Start](./docs/quickstart.md) - Guia rápido
+
+Documentação interativa da API (após iniciar o servidor):
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
