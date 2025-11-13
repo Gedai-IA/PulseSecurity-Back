@@ -16,7 +16,15 @@ class Settings(BaseSettings):
     
     # API
     API_V1_PREFIX: str = "/api/v1"
-    CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
+    # Definir como str primeiro para evitar parse JSON automático
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+    
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """Retorna CORS_ORIGINS como lista."""
+        if isinstance(self.CORS_ORIGINS, str):
+            return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+        return self.CORS_ORIGINS if isinstance(self.CORS_ORIGINS, list) else []
     
     # NLP Models
     SPACY_MODEL: str = "pt_core_news_sm"
