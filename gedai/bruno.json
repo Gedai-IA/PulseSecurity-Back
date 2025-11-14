@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "gedai",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

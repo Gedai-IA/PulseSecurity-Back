@@ -26,6 +26,11 @@ async def get_dashboard_stats(
     )
     
     # Converte enums para strings para serialização JSON
+    # Converte tupla de date_range para lista para serialização JSON
+    date_range_list = None
+    if stats.date_range:
+        date_range_list = [stats.date_range[0], stats.date_range[1]]
+    
     return DashboardStatsResponseSchema(
         total_publications=stats.total_publications,
         total_comments=stats.total_comments,
@@ -34,6 +39,6 @@ async def get_dashboard_stats(
         sentiment_distribution={k.value: v for k, v in stats.sentiment_distribution.items()},
         emotion_distribution={k.value: v for k, v in stats.emotion_distribution.items()},
         topic_distribution={k.value: v for k, v in stats.topic_distribution.items()},
-        date_range=stats.date_range,
+        date_range=date_range_list,
     )
 
