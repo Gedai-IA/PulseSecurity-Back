@@ -128,6 +128,22 @@ DATABASE_URL=postgresql+asyncpg://scrapping_user:scrapping_password@localhost:54
 
 O projeto usa **Alembic** para gerenciar migrations do banco de dados.
 
+#### Estrutura de Dados
+
+Os dados iniciais são carregados automaticamente através das migrations. Os arquivos JSON devem estar na pasta `json/` dentro do diretório do backend:
+
+```
+scrapping-backend/
+├── json/                    # Arquivos JSON com dados das publicações
+│   ├── *.json
+│   └── README.md
+├── alembic/
+│   └── helpers.py          # Funções para processar JSONs
+└── ...
+```
+
+A migration `populate_json_data` lê todos os arquivos `*.json` da pasta `json/` e os importa diretamente para o banco de dados, processando os dados em memória sem armazenar arquivos intermediários.
+
 #### Aplicar Migrations
 
 ```bash
@@ -137,6 +153,8 @@ make upgrade
 # Ou diretamente
 uv run alembic upgrade head
 ```
+
+**Nota:** Certifique-se de que a pasta `json/` existe e contém os arquivos JSON antes de executar as migrations.
 
 #### Criar Nova Migration
 
