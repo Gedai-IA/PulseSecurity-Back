@@ -7,6 +7,7 @@ Este diretório contém toda a documentação técnica do projeto.
 - **[Arquitetura](./architecture.md)** - Diagrama de arquitetura e visão geral do sistema
 - **[Diagramas de Sequência](./sequence-diagrams.md)** - Fluxos principais da aplicação
 - **[Guia de Desenvolvimento](./development.md)** - Setup, convenções e boas práticas
+- **[Configuração do Banco de Dados](./database-setup.md)** - Setup completo do PostgreSQL e migrations
 - **[Documentação da API](./api.md)** - Referência completa dos endpoints
 - **[Quick Start](./quickstart.md)** - Guia rápido para começar
 
@@ -22,10 +23,11 @@ Este projeto implementa um backend para análise de sentimento, emoções e tóp
 
 ## Começando
 
-1. Leia o [Quick Start](./quickstart.md) para configurar o ambiente
-2. Consulte a [Arquitetura](./architecture.md) para entender a estrutura
-3. Veja os [Diagramas de Sequência](./sequence-diagrams.md) para entender os fluxos
-4. Use a [Documentação da API](./api.md) como referência durante o desenvolvimento
+1. Leia o [Quick Start](./quickstart.md) para configurar o ambiente rapidamente
+2. Consulte a [Configuração do Banco de Dados](./database-setup.md) para setup detalhado do PostgreSQL
+3. Consulte a [Arquitetura](./architecture.md) para entender a estrutura
+4. Veja os [Diagramas de Sequência](./sequence-diagrams.md) para entender os fluxos
+5. Use a [Documentação da API](./api.md) como referência durante o desenvolvimento
 
 ## Contribuindo
 

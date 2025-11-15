@@ -46,12 +46,74 @@ uv run python -m spacy download pt_core_news_sm
 
 ### 5. Configure o Banco de Dados
 
+#### Opção A - Script Automatizado (Recomendado)
+
+**⚠️ IMPORTANTE:** Use o script de configuração automática antes de continuar. Ele instala e configura tudo automaticamente:
+
+```bash
+# Execute da raiz do projeto (gedai/) ou do diretório scrapping-backend
+./setup-postgres.sh
+
+# Ou se estiver no diretório scrapping-backend:
+cd scrapping-backend
+./setup-postgres.sh
+```
+
+Este script irá:
+- Instalar PostgreSQL (se necessário)
+- Iniciar o serviço PostgreSQL
+- Criar o banco de dados `scrapping_db`
+- Criar o usuário `scrapping_user`
+- Configurar o arquivo `.env` com as credenciais corretas
+
+**Após executar o script, continue com o passo 6 (Executar Migrations) abaixo.**
+
+#### Opção B - Configuração Manual
+
+Se preferir fazer manualmente:
+
+**Instalar PostgreSQL:**
+```bash
+# Instalar PostgreSQL
+sudo apt-get update
+sudo apt-get install -y postgresql postgresql-contrib
+
+# Iniciar serviço
+sudo service postgresql start
+```
+
+**Criar Banco de Dados e Usuário:**
 ```bash
 # Criar database
-createdb scrapping_db
+sudo -u postgres psql -c "CREATE DATABASE scrapping_db;"
 
-# Executar migrations
+# Criar usuário
+sudo -u postgres psql -c "CREATE USER scrapping_user WITH PASSWORD 'scrapping_password';"
+
+# Conceder privilégios
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE scrapping_db TO scrapping_user;"
+sudo -u postgres psql -d scrapping_db -c "GRANT ALL ON SCHEMA public TO scrapping_user;"
+```
+
+#### Executar Migrations
+
+**Opção A - Usando Alembic (recomendado):**
+```bash
+# Aplicar todas as migrations
+make upgrade
+# ou
 uv run alembic upgrade head
+```
+
+**Opção B - Usando Scripts SQL:**
+```bash
+# Criar todas as tabelas via SQL
+./scripts/apply-all-tables.sh
+```
+
+**Verificar tabelas criadas:**
+```bash
+psql -h localhost -U scrapping_user -d scrapping_db -c "\dt"
 ```
 
 ### 6. Inicie o Servidor
@@ -132,20 +194,79 @@ make lint
 
 ### Migrations
 
+O projeto usa **Alembic** para gerenciar migrations do banco de dados.
+
+#### Comandos Básicos
+
 ```bash
 # Criar nova migration
+make migrate msg="descrição da migration"
+# ou
 uv run alembic revision --autogenerate -m "descrição da migration"
 
 # Aplicar migrations
+make upgrade
+# ou
 uv run alembic upgrade head
 
 # Reverter última migration
+make downgrade
+# ou
 uv run alembic downgrade -1
 
-# Ou usar o Makefile
-make migrate msg="descrição"
-make upgrade
-make downgrade
+# Ver status atual
+uv run alembic current
+
+# Ver histórico de migrations
+uv run alembic history
+```
+
+#### Scripts SQL Alternativos
+
+Se as migrations do Alembic não funcionarem, você pode usar os scripts SQL na pasta `scripts/`:
+
+```bash
+# Criar todas as tabelas via SQL
+./scripts/apply-all-tables.sh
+
+# Criar apenas a tabela users via SQL
+./scripts/apply-sql-migration.sh
+
+# Aplicar migrations do Alembic (script wrapper)
+./scripts/apply-migrations.sh
+```
+
+#### Fluxo de Trabalho com Migrations
+
+1. **Fazer alterações nos models** em `app/infrastructure/database/models.py`
+
+2. **Gerar migration:**
+   ```bash
+   make migrate msg="adiciona campo novo"
+   ```
+
+3. **Revisar o arquivo gerado** em `alembic/versions/` e ajustar se necessário
+
+4. **Aplicar a migration:**
+   ```bash
+   make upgrade
+   ```
+
+5. **Verificar se funcionou:**
+   ```bash
+   psql -h localhost -U scrapping_user -d scrapping_db -c "\d nome_da_tabela"
+   ```
+
+#### Sincronizar Alembic Após Criar Tabelas Manualmente
+
+Se você criou tabelas manualmente via SQL e quer sincronizar o Alembic:
+
+```bash
+# Marca a migration como aplicada sem executá-la
+uv run alembic stamp head
+
+# Ou marca uma migration específica
+uv run alembic stamp <revision_id>
 ```
 
 ### Importar Dados
@@ -263,15 +384,30 @@ class ExampleService:
 
 ### Adicionar Nova Migration
 
-```bash
-# 1. Faça alterações nos models
-# 2. Gere a migration
-uv run alembic revision --autogenerate -m "adiciona campo novo"
+1. **Faça alterações nos models** em `app/infrastructure/database/models.py`
 
-# 3. Revise o arquivo gerado em alembic/versions/
-# 4. Aplique a migration
-uv run alembic upgrade head
-```
+2. **Gere a migration:**
+   ```bash
+   make migrate msg="adiciona campo novo"
+   # ou
+   uv run alembic revision --autogenerate -m "adiciona campo novo"
+   ```
+
+3. **Revise o arquivo gerado** em `alembic/versions/` e ajuste se necessário
+
+4. **Aplique a migration:**
+   ```bash
+   make upgrade
+   # ou
+   uv run alembic upgrade head
+   ```
+
+5. **Verifique se funcionou:**
+   ```bash
+   psql -h localhost -U scrapping_user -d scrapping_db -c "\d nome_da_tabela"
+   ```
+
+**Nota:** Se a migration gerada estiver vazia (só tem `pass`), você pode precisar preenchê-la manualmente ou usar os scripts SQL alternativos em `scripts/`.
 
 ## Testes
 
@@ -416,15 +552,36 @@ pip install https://github.com/explosion/spacy-models/releases/download/pt_core_
 
 ### Migration não aplica
 
+**Erro: "Target database is not up to date"**
 ```bash
-# Ver status atual
+# Aplique as migrations pendentes primeiro
+make upgrade
+```
+
+**Erro: "relation does not exist"**
+```bash
+# Use o script SQL para criar as tabelas
+./scripts/apply-all-tables.sh
+
+# Depois sincronize o Alembic
+uv run alembic stamp head
+```
+
+**Verificar status:**
+```bash
+# Ver migration atual
 uv run alembic current
 
 # Ver histórico
 uv run alembic history
 
-# Forçar upgrade
-uv run alembic upgrade head --sql  # Ver SQL primeiro
+# Ver SQL que será executado (sem aplicar)
+uv run alembic upgrade head --sql
+```
+
+**Forçar aplicação:**
+```bash
+# Aplicar todas as migrations
 uv run alembic upgrade head
 ```
 
