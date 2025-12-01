@@ -346,6 +346,200 @@ sequenceDiagram
 
 ---
 
+## 7. Fluxo de Análise de Segurança Pública com Drones
+
+### 7.1. Análise de Stream de Drone em Tempo Real
+
+```mermaid
+sequenceDiagram
+    actor User as Usuário
+    participant Frontend as Frontend
+    participant API as FastAPI Router
+    participant DetectionService as Detection Service
+    participant YOLO as YOLO Detector
+    participant Camera as Camera/Drone Feed
+    participant DB as PostgreSQL
+
+    User->>Frontend: Acessa "Análise de Drones"
+    Frontend->>API: GET /api/v1/detections/streams
+    Note over Frontend,API: Authorization: Bearer {token}
+    
+    API->>DetectionService: list_active_streams()
+    DetectionService->>DB: SELECT * FROM drone_streams WHERE active = true
+    DB-->>DetectionService: List[DroneStream]
+    DetectionService-->>API: List[DroneStream]
+    API-->>Frontend: 200 OK {streams}
+    
+    Frontend-->>User: Lista de streams disponíveis
+    
+    User->>Frontend: Seleciona stream de drone
+    Frontend->>API: POST /api/v1/detections/streams/{id}/start
+    Note over Frontend,API: Authorization: Bearer {token}
+    
+    API->>DetectionService: start_detection_stream(stream_id)
+    DetectionService->>Camera: connect_to_stream(stream_url)
+    Camera-->>DetectionService: Stream connection established
+    
+    DetectionService->>DetectionService: Inicia thread de processamento
+    
+    loop Para cada frame do stream
+        Camera->>DetectionService: Frame (imagem)
+        DetectionService->>YOLO: detect_objects(frame)
+        YOLO->>YOLO: Processa com modelo YOLO
+        YOLO-->>DetectionService: Detections {boxes, classes, confidences}
+        
+        alt Objetos detectados (armas)
+            DetectionService->>DetectionService: process_detections(detections)
+            DetectionService->>DB: INSERT INTO detections
+            Note over DetectionService,DB: {stream_id, timestamp,<br/>objects_detected,<br/>location, confidence}
+            DB-->>DetectionService: Detection ID
+            
+            DetectionService->>API: WebSocket: send_alert(detection)
+            API->>Frontend: WebSocket: alert {detection}
+            Frontend->>Frontend: Exibe alerta em tempo real
+            Frontend-->>User: Alerta visual + notificação
+        end
+        
+        DetectionService->>API: WebSocket: send_frame(frame_with_detections)
+        API->>Frontend: WebSocket: frame {image, detections}
+        Frontend->>Frontend: Atualiza visualização
+        Frontend-->>User: Frame com bounding boxes
+    end
+```
+
+### 7.2. Upload e Análise de Imagem de Drone
+
+```mermaid
+sequenceDiagram
+    actor User as Usuário
+    participant Frontend as Frontend
+    participant API as FastAPI Router
+    participant DetectionService as Detection Service
+    participant YOLO as YOLO Detector
+    participant Storage as File Storage
+    participant DB as PostgreSQL
+
+    User->>Frontend: Faz upload de imagem de drone
+    Frontend->>Frontend: Valida arquivo (tipo, tamanho)
+    Frontend->>API: POST /api/v1/detections/analyze
+    Note over Frontend,API: Authorization: Bearer {token}<br/>Content-Type: multipart/form-data<br/>file: image.jpg<br/>location: {lat, lng}
+    
+    API->>API: Valida arquivo e metadados
+    API->>Storage: save_uploaded_file(file)
+    Storage-->>API: file_path
+    
+    API->>DetectionService: analyze_image(file_path, location)
+    DetectionService->>YOLO: detect_objects(image_path)
+    YOLO->>YOLO: Carrega modelo YOLO
+    YOLO->>YOLO: Processa imagem
+    YOLO-->>DetectionService: Detections {boxes, classes, confidences, names}
+    
+    DetectionService->>DetectionService: process_detections(detections)
+    DetectionService->>DetectionService: generate_annotated_image(image, detections)
+    DetectionService->>Storage: save_annotated_image(annotated_image)
+    Storage-->>DetectionService: annotated_image_path
+    
+    DetectionService->>DB: INSERT INTO detections
+    Note over DetectionService,DB: {image_path, annotated_path,<br/>location, timestamp,<br/>objects_detected, metadata}
+    DB-->>DetectionService: Detection ID
+    
+    DetectionService-->>API: DetectionResult
+    Note over DetectionService,API: {detection_id, objects_detected,<br/>annotated_image_url,<br/>confidence_scores, location}
+    
+    API-->>Frontend: 200 OK {result}
+    Frontend->>Frontend: Renderiza resultado
+    Frontend-->>User: Imagem anotada + estatísticas
+    Note over User: Visualiza:<br/>- Imagem com bounding boxes<br/>- Contagem de objetos detectados<br/>- Níveis de confiança<br/>- Localização no mapa
+```
+
+---
+
+## 8. Fluxo de Dashboard Integrado
+
+### 8.1. Dashboard Integrado com Alertas em Tempo Real
+
+```mermaid
+sequenceDiagram
+    actor User as Usuário
+    participant Frontend as Frontend
+    participant API as FastAPI Router
+    participant DashboardService as Dashboard Service
+    participant PubService as Publication Service
+    participant DetectionService as Detection Service
+    participant DB as PostgreSQL
+    participant WS as WebSocket
+
+    User->>Frontend: Acessa dashboard principal
+    Frontend->>API: GET /api/v1/dashboard/stats
+    Frontend->>WS: connect_websocket()
+    
+    API->>DashboardService: get_dashboard_stats()
+    
+    par Análise de Redes Sociais
+        DashboardService->>PubService: get_publication_stats()
+        PubService->>DB: SELECT COUNT(*), sentiment, emotion, topic<br/>FROM publications<br/>WHERE date > NOW() - INTERVAL '24 hours'<br/>GROUP BY sentiment, emotion, topic
+        DB-->>PubService: Aggregated stats
+        PubService-->>DashboardService: SocialMediaStats
+    and Análise de Drones
+        DashboardService->>DetectionService: get_detection_stats()
+        DetectionService->>DB: SELECT COUNT(*), class, confidence<br/>FROM detections<br/>WHERE timestamp > NOW() - INTERVAL '24 hours'<br/>GROUP BY class
+        DB-->>DetectionService: Aggregated stats
+        DetectionService-->>DashboardService: DetectionStats
+    end
+    
+    DashboardService->>DashboardService: merge_stats(social_stats, detection_stats)
+    DashboardService->>DashboardService: calculate_risk_indicators()
+    DashboardService-->>API: IntegratedDashboardStats
+    
+    API-->>Frontend: 200 OK {stats}
+    Frontend->>Frontend: Renderiza dashboard
+    
+    loop WebSocket: Alertas em Tempo Real
+        DetectionService->>WS: send_alert(detection)
+        WS->>Frontend: {type: "detection_alert", data: {...}}
+        Frontend->>Frontend: Exibe notificação
+        Frontend->>Frontend: Atualiza contadores
+        Frontend-->>User: Alerta visual + som
+    end
+```
+
+### 8.2. Visualização Integrada no Mapa
+
+```mermaid
+sequenceDiagram
+    actor User as Usuário
+    participant Frontend as Frontend
+    participant API as FastAPI Router
+    participant AnalysisService as Analysis Service
+    participant DB as PostgreSQL
+
+    User->>Frontend: Acessa "Mapa de Eventos"
+    Frontend->>API: GET /api/v1/map/events?bounds={north,south,east,west}
+    Note over Frontend,API: Authorization: Bearer {token}
+    
+    API->>AnalysisService: get_map_events(bounds, filters)
+    
+    AnalysisService->>DB: SELECT * FROM detections<br/>WHERE location && bounds<br/>AND timestamp > NOW() - INTERVAL '24 hours'
+    DB-->>AnalysisService: List[Detection]
+    
+    AnalysisService->>DB: SELECT * FROM publications<br/>WHERE has_location = true<br/>AND location && bounds<br/>AND date > NOW() - INTERVAL '24 hours'
+    DB-->>AnalysisService: List[Publication]
+    
+    AnalysisService->>AnalysisService: aggregate_events(detections, publications)
+    AnalysisService->>AnalysisService: calculate_risk_levels()
+    AnalysisService-->>API: MapEvents {events, risk_zones}
+    
+    API-->>Frontend: 200 OK {events, risk_zones}
+    
+    Frontend->>Frontend: Renderiza mapa
+    Frontend->>Frontend: Adiciona marcadores de eventos
+    Frontend->>Frontend: Desenha zonas de risco
+    Frontend-->>User: Mapa interativo
+    Note over User: Visualiza:<br/>- Marcadores de detecções de drones<br/>- Marcadores de publicações relevantes<br/>- Zonas de risco calculadas<br/>- Heatmap de atividade
+```
+
+---
+
 ## Notas Técnicas
 
 ### Validação de Dados
