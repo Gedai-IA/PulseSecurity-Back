@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api.v1.routes import publications, dashboard, analysis, auth
+from app.api.v1.routes import publications, dashboard, analysis, auth, object_detector
 
 app = FastAPI(
     title="Scrapping Backend API",
@@ -24,6 +24,7 @@ app.include_router(auth.router, prefix=settings.API_V1_PREFIX, tags=["auth"])
 app.include_router(publications.router, prefix=settings.API_V1_PREFIX, tags=["publications"])
 app.include_router(dashboard.router, prefix=settings.API_V1_PREFIX, tags=["dashboard"])
 app.include_router(analysis.router, prefix=settings.API_V1_PREFIX, tags=["analysis"])
+app.include_router(object_detector.router, prefix=settings.API_V1_PREFIX, tags=["object-detector"])
 
 
 @app.get("/")
